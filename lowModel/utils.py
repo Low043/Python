@@ -1,3 +1,42 @@
+import os
+from termcolor import colored
+
+def center(text:str,fill=' '):#Centraliza um texto no terminal
+    terminalWidth = os.get_terminal_size()[0]#Tamanho do terminal
+
+    if '\033' in text:#Caso o texto esteja colorido
+        colors = []
+        uncoloredTexts = []
+        while '\033' in text:#Enquanto existirem partes coloridas
+            #Separa a cor
+            colorBegin = text.find('\033')
+            colorEnd = colorBegin + 5
+            colors.append(text[colorBegin:colorEnd])
+
+            #Separa a versão do texto não colorida
+            resetColorBegin = text.find('\033[0m')
+            resetColorEnd = resetColorBegin + 4
+            uncoloredTexts.append(text[colorEnd:resetColorBegin])
+
+            #Remove a cor salva
+            text = text.replace(colors[-1],'',1).replace('\033[0m','',1)
+        
+        #Quando o texto estiver sem cor
+        text = text.center(terminalWidth,fill)#Centraliza o texto
+        result = ''
+        for n,uncoloredText in enumerate(uncoloredTexts):#Pra cada cor removida
+            #Colore o texto novamente e guarda a posição onde ela está depois de ser centralizada
+            coloredText = colors[n] + uncoloredText + '\033[0m'
+            uncoloredBegin = text.find(uncoloredText)
+            uncoloredEnd = uncoloredBegin + len(uncoloredText)
+
+            #Vai adicionando ao resultado o mesmo texto centralizado porém substituindo a parte não colorida pela colorida
+            result += text[:uncoloredBegin] + coloredText
+            text = text[uncoloredEnd:]
+        return result + text#Retorna o texto centralizado sem modificar as cores
+    else:#Caso não esteja colorido, retorna o valor centralizado normalmente
+        return text.center(terminalWidth,fill)
+
 class Pointer:
     #Ponteiros são espécies de "locais na memória compartilhados"
     #No momento que um ponteiro recebe outro ponteiro como valor eles são conectados
