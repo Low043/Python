@@ -10,13 +10,13 @@ def center(text:str,fill=' '):#Centraliza um texto no terminal
         while '\033' in text:#Enquanto existirem partes coloridas
             #Separa a cor
             colorBegin = text.find('\033')
-            colorEnd = colorBegin + 5
+            colorEnd = text.find('m',colorBegin) + 1
+            while text[colorEnd] == '\033':#Enquanto uma cor terminar com o início de uma nova cor, adiciona
+                colorEnd = text.find('m',colorEnd) + 1
             colors.append(text[colorBegin:colorEnd])
 
             #Separa a versão do texto não colorida
-            resetColorBegin = text.find('\033[0m')
-            resetColorEnd = resetColorBegin + 4
-            uncoloredTexts.append(text[colorEnd:resetColorBegin])
+            uncoloredTexts.append(text[colorEnd:text.find('\033[0m')])
 
             #Remove a cor salva
             text = text.replace(colors[-1],'',1).replace('\033[0m','',1)
