@@ -1,5 +1,6 @@
 import os
 from termcolor import colored
+from msvcrt import kbhit, getch
 
 def center(text:str,fill=' '):#Centraliza um texto no terminal
     terminalWidth = os.get_terminal_size()[0]#Tamanho do terminal
@@ -105,3 +106,63 @@ class Pointer:
     def __str__(self):#Permite que ponteiros sejam tratados como string
         return str(self.get())
 
+class Keyboard:
+    #Filters
+    NUMBERS = '1234567890'
+
+    def readKeyboard(orded=True) -> list:
+        keys = []
+        while kbhit():
+            if orded:
+                keys.append(ord(getch()))
+            else:
+                keys.append(getch())
+        return keys
+
+    def keyToAccentedChar(keyNumber):#Recebe o código de uma tecla do teclado e retorna a letra acentuada correspondente
+        base = 'Ç éâ à çê è îì  É  ô òûù        áíóú                 ÁÂÀ              ãÃ          Ê È ÍÎ      Ì Ó ÔÒõÕ   ÚÛÙ'
+        try:
+            return base[keyNumber-128]
+        except:
+            return keyNumber
+        
+    def keyToSpecialsChar(keyNumber):
+        specials = {32 : 'space',27 : 'esc',13 : 'enter',9 : 'tab',8 : 'back'}
+        try:
+            return specials[keyNumber]
+        except:
+            return keyNumber
+        
+    def keyToSpecials224Char(keyNumber:int) -> str:
+        specials224 = {72 : 'up',80 : 'down',75 : 'left',77 : 'right',83 : 'delete'}
+        try:
+            return specials224[keyNumber]
+        except:
+            return 'error'
+
+    def convertKeys(keys:list) -> list:
+        convertedKeys = []
+        special224 = False
+        for key in keys:
+            if key == 224:#Verifica se é uma tecla que começa com 224 (ex: [224,71] = 'up')
+                special224 = True
+            elif special224:#Se for uma tecla com 224 a próxima tecla será analizada de forma diferente
+                special224 = False
+                convertedKeys.append(Keyboard.keyToSpecials224Char(key))
+            else:#Caso não seja 224, verifica se é uma tecla normal, caso não, converte para acentuada ou especial
+                if key < 128:
+                    newkey = Keyboard.keyToSpecialsChar(key)
+                    if key != newkey:
+                        convertedKeys.append(newkey)
+                    else:
+                        convertedKeys.append(chr(newkey))
+                else:
+                    convertedKeys.append(Keyboard.keyToAccentedChar(key))
+        return convertedKeys
+
+    def getKeyPressed() -> list:#Retorna a tecla pressionada
+        keys = Keyboard.convertKeys(Keyboard.readKeyboard())
+        if len(keys) == 1:
+            return keys[0]
+        return keys
+    
