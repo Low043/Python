@@ -37,6 +37,12 @@ def center(text:str,fill=' '):#Centraliza um texto no terminal
     else:#Caso não esteja colorido, retorna o valor centralizado normalmente
         return text.center(terminalWidth,fill)
 
+def numToMonth(num,upper=True):
+    months = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro']
+    num = int(num) - 1
+    if num > 0 and num < len(months):
+        return months[num].upper() if upper else months[num]
+
 class Pointer:
     #Ponteiros são espécies de "locais na memória compartilhados"
     #No momento que um ponteiro recebe outro ponteiro como valor eles são conectados
