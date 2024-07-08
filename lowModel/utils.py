@@ -1,6 +1,7 @@
 import os
 from termcolor import colored
 from msvcrt import kbhit, getch
+from unidecode import unidecode
 
 def center(text:str,fill=' '):#Centraliza um texto no terminal
     terminalWidth = os.get_terminal_size()[0]#Tamanho do terminal
@@ -38,11 +39,33 @@ def center(text:str,fill=' '):#Centraliza um texto no terminal
     else:#Caso não esteja colorido, retorna o valor centralizado normalmente
         return text.center(terminalWidth,fill)
 
+def simplifyText(text:str):
+    return unidecode(text.lower())
+
 def numToMonth(num,upper=True):
     months = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro']
     num = int(num) - 1
     if num > 0 and num < len(months):
         return months[num].upper() if upper else months[num]
+
+def numToMoney(num):
+    text = f'{num:.2f}'.replace('.','')
+    if len(text) >= 3:
+        text = text[:-2] + ',' + text[-2:]
+
+    for i in range(100):
+        if len(text) > 6+4*i:
+            text = text[:-6-4*i] + '.' + text[-6-4*i:]
+        else:
+            break
+
+    return 'R$ ' + text
+
+def moneyToNum(text):
+    text = text.replace('R$ ','')
+    if text[-3:] == ',00':
+        text = text[:-3]
+    return float(text.replace(',','.').replace('.',''))
 
 class Pointer:
     #Ponteiros são espécies de "locais na memória compartilhados"

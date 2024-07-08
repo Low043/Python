@@ -4,17 +4,20 @@ from datetime import date, timedelta
 class MenuOption:
     def __init__(self,text):
         self.menu = Pointer()
-        self.text = Pointer(text)
+        self.text = Pointer(text) if type(text) == list else Pointer([text])
         self.editVar = Pointer()
+        self.moneyFormat = False
         self.filter = Pointer()
         self.rule = Pointer(lambda *args : None)#Regrinha do que acontece depois da interação (é útil com data)
         self.enterFunctionList = Pointer([])
         self.validInteraction = False
 
-    def synchronizeValue(self,pointer:Pointer,filter=None,rule=lambda *args : None):
+    def synchronizeValue(self,pointer:Pointer,filter=None,rule=lambda *args : None,separator=': '):
         self.editVar.set(pointer)
         self.filter.set(filter)
         self.rule.set(rule)
+        self.separator = separator
+        self.moneyFormat = self.rule.get() == self.ruleMoney
 
     def addEnterFunction(self,func):
         self.enterFunctionList.append(func)
@@ -29,7 +32,7 @@ class MenuOption:
             for func in self.enterFunctionList.get():
                 func()
                 self.validInteraction = True
-        elif self.editVar.get() != None:
+        elif self.editVar.get() != None and type(self.editVar.get()) == str:
             if key == 'back':
                 self.editVar.set(self.editVar.get()[:-1])
                 self.validInteraction = True
@@ -71,10 +74,34 @@ class MenuOption:
             self.editVar.set(convertedNextDate)
             self.validInteraction = True
             
+    def ruleMoney(self,key):
+        self.moneyFormat = True
+        if key.isnumeric():
+            self.editVar.set(self.editVar.get()*10+0.01*int(key))
+            self.validInteraction = True
+        elif key == 'back':
+            if self.editVar.get() < 0.1:
+                self.editVar.set(0)
+            else:
+                value = str(float(self.editVar.get()/10))
+                if len(value.split('.')[1]) > 2:
+                    value = value[:-1]
+                self.editVar.set(float(value))
+            self.validInteraction = True
+        elif key == 'delete':
+            self.editVar.set(0)
+            self.validInteraction = True
+    
     def __str__(self):
-        result = self.text.get()
+        result = ''
+        for text in self.text.get():
+            try:
+                result += text()
+            except:
+                result += str(text)
+        
         if self.editVar.get() != None:
-            result += f': {self.editVar.get()}'
+            result += f'{self.separator}{self.editVar.get() if not self.moneyFormat else numToMoney(self.editVar.get())}'
         return result
     
 class CheckBox(MenuOption):
@@ -89,7 +116,13 @@ class CheckBox(MenuOption):
         self.validInteraction = True
 
     def __str__(self):
-        return f'{"[OK]" if self.editVarBool.get() else "[  ]"} {self.text.get()}'
+        result = ''
+        for text in self.text.get():
+            try:
+                result += text()
+            except:
+                result += str(text)
+        return f'{"[OK]" if self.editVarBool.get() else "[  ]"} {result}'
 
 class SelectOption(MenuOption):
     def __init__(self,text,pointer:Pointer,optionList,selectedOption=0,attributeText=None):
@@ -109,12 +142,77 @@ class SelectOption(MenuOption):
             self.validInteraction = True
 
     def __str__(self):
+        result = ''
+        for text in self.text.get():
+            try:
+                result += text()
+            except:
+                result += str(text)
         text = self.optionList.get()[self.selectedOption.get()]
         if self.attributeText:
             text = getattr(text,self.attributeText)
         if self.editVar.get() != None:
-            return f'{self.text.get()}: {self.editVar.get()} {"<" if self.selectedOption.get() > 0 else " "} {text} {">" if self.selectedOption.get() < len(self.optionList.get())-1 else " "}'
-        return f'{self.text.get()}: {"<" if self.selectedOption.get() > 0 else " "} {text} {">" if self.selectedOption.get() < len(self.optionList.get())-1 else " "}'
+            return f'{result}: {self.editVar.get()} {"<" if self.selectedOption.get() > 0 else " "} {text} {">" if self.selectedOption.get() < len(self.optionList.get())-1 else " "}'
+        return f'{result}: {"<" if self.selectedOption.get() > 0 else " "} {text} {">" if self.selectedOption.get() < len(self.optionList.get())-1 else " "}'
+
+class SearchOption(MenuOption):
+    def __init__(self,text,pointer:Pointer,filter=None,rule=lambda *args : None,searchSuggestions=Pointer([])):
+        super().__init__(text)
+        self.synchronizeValue(pointer,filter,rule)
+        self.searchSuggestions = searchSuggestions
+        self.suggestion = None
+        self.suggestionColor = 'dark_grey'
+        self.suggestNum = 0
+    
+    def interact(self,key) -> bool:
+        validInteraction = super().interact(key)
+
+        if self.editVar.get() != None and key != 'enter':
+            if key == 'tab' and self.suggestion != None:
+                self.editVar.set(str(self.suggestion))
+                self.suggestNum = 0
+                return True
+            if key == 'delete':
+                self.editVar.set('')
+                self.suggestion = None
+                self.suggestNum = 0
+                return True
+            
+            suggestionsTested = []
+            self.suggestion = None
+            searchLength = len(self.editVar.get())
+            if searchLength > 0:
+                for suggestion in self.searchSuggestions.get():
+                    if len(suggestion) >= searchLength:
+                        if simplifyText(self.editVar.get()) == simplifyText(suggestion[:searchLength]):
+                            suggestionsTested.append(suggestion)
+
+            if key == 'right':
+                self.suggestNum += 1
+                validInteraction = True
+            elif key == 'left':
+                self.suggestNum -= 1
+                validInteraction = True
+            if self.suggestNum < 0:
+                self.suggestNum = len(suggestionsTested) - 1
+            elif self.suggestNum >= len(suggestionsTested):
+                self.suggestNum = 0
+            if self.suggestNum < len(suggestionsTested):
+                self.suggestion = suggestionsTested[self.suggestNum]
+                
+        return validInteraction
+    
+    def __str__(self):
+        result = ''
+        for text in self.text.get():
+            try:
+                result += text()
+            except:
+                result += str(text)
+        if self.editVar.get() != None:
+            suggestionText = None if self.suggestion == None else str(self.suggestion)[len(self.editVar.get()):]
+            result += f': {self.editVar.get()}{colored(suggestionText,self.suggestionColor) if suggestionText else ""}'
+        return result
 
 class Menu:
     def __init__(self,title,subtitle=None):
