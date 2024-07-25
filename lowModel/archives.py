@@ -38,7 +38,8 @@ class Excel:
     def getRow(self,sheet:str,row:int):#Returns a list of Cells in Row (Begins with 1)
         return list(self.wb[sheet].rows)[row-1]
     
-    def getColumn(self,sheet:str,column:int):#Returns a list of Cells in Column (Begins with 1)
+    def getColumn(self,sheet:str,column):#Returns a list of Cells in Column (Begins with 1)
+        column = self.convertColumn(column)
         return list(self.wb[sheet].columns)[column-1]
     
     def getRowOfValue(self,sheet:str,column,value,occurrenceIndex=1):#Return the Row of Value in Column (Index -1 returns all occurrences)
@@ -84,8 +85,9 @@ class Excel:
 
     def setCellFontStyle(self,sheet:str,column,row:int,fontStyle:Font):#Set a cell Font Style
         column = self.convertColumn(column)#Cell.Font doesn't allow fontStyle but allow a new Font equivalent
-        cell = self.wb[sheet].cell(row,column).font = Font(fontStyle.name,fontStyle.sz,fontStyle.b,fontStyle.i,fontStyle.charset,fontStyle.u,fontStyle.strike,fontStyle.color,fontStyle.scheme,fontStyle.family,fontStyle.size)
+        self.wb[sheet].cell(row,column).font = Font(fontStyle.name,fontStyle.sz,fontStyle.b,fontStyle.i,fontStyle.charset,fontStyle.u,fontStyle.strike,fontStyle.color,fontStyle.scheme,fontStyle.family,fontStyle.size)
 
+    #MAKE AUTO SIZE IF -1 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     def setSize(self,sheet:str,column=None,row=None,size=-1):#Set a row/column height/width
         if row:
             self.wb[sheet].row_dimensions[row].height = size
@@ -155,6 +157,21 @@ class Excel:
     def close(self):#Close Excel file REMEMBER IT!!!!
         self.wb.close()
     
+    def getCellRange(self,sheet:str,column1,row1:int,column2,row2:int,allowFormula=True):
+        column1, column2 = self.convertColumn(column1), self.convertColumn(column2)
+        values = []
+        for column in range(column1,column2+1):
+            values.append([])
+            for row in range(row1,row2+1):
+                values[-1].append(self.getCellValue(sheet,column,row,allowFormula))
+        return values
+    
+    def setCellRange(self,sheet:str,column1,row1:int,column2,row2:int,rangeValues:list):
+        column1, column2 = self.convertColumn(column1), self.convertColumn(column2)
+        for column in range(column1,column2+1):
+            for row in range(row1,row2+1):
+                self.setCellValue(sheet,column,row,rangeValues[column-column1][row-row1])
+
 class Pdf:
     current_path = os.getcwd()
     pytesseract.pytesseract.tesseract_cmd = rf'{current_path}\lowModel\exterior\Tesseract-OCR\tesseract.exe'
