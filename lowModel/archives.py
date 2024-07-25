@@ -109,6 +109,7 @@ class Excel:
             self.backup()
 
         if path[-4:] == '.pdf':#If path ends with .pdf save file as PDF
+            self.wb.save(self.path)
             self.savePdf(path,pagesPdf)
         elif path[-5:] == '.xlsx':#If path ends with .xlsx save file as Excel
             self.wb.save(path)#OpenPyXl function to save Excel
@@ -157,7 +158,7 @@ class Excel:
     def close(self):#Close Excel file REMEMBER IT!!!!
         self.wb.close()
     
-    def getCellRange(self,sheet:str,column1,row1:int,column2,row2:int,allowFormula=True):
+    def getCellRange(self,sheet:str,column1,row1:int,column2,row2:int,allowFormula=True):#Returns a list of Cell Values in range
         column1, column2 = self.convertColumn(column1), self.convertColumn(column2)
         values = []
         for column in range(column1,column2+1):
@@ -166,7 +167,7 @@ class Excel:
                 values[-1].append(self.getCellValue(sheet,column,row,allowFormula))
         return values
     
-    def setCellRange(self,sheet:str,column1,row1:int,column2,row2:int,rangeValues:list):
+    def setCellRange(self,sheet:str,column1,row1:int,column2,row2:int,rangeValues:list):#Set Cell Values in range based in RangeValues
         column1, column2 = self.convertColumn(column1), self.convertColumn(column2)
         for column in range(column1,column2+1):
             for row in range(row1,row2+1):
