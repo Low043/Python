@@ -278,7 +278,8 @@ class Menu:
             if self.overlay and n == self.optionSelected.get():
                 option = colored(option,attrs=['underline'])
             lineSep = option[0] == '\n'
-            lines.append(f'{"\n" if lineSep else ""}{" > " if self.optionSelected.get()==n else "   "}{option if lineSep==False else option[1:]}')
+            br = '\n'
+            lines.append(f'{br if lineSep else ""}{" > " if self.optionSelected.get()==n else "   "}{option if lineSep==False else option[1:]}')
         
         maxLines = os.get_terminal_size()[1] - 2
         currentLine = titles + self.optionSelected.get()

@@ -174,47 +174,41 @@ class Excel:
             for row in range(row1,row2+1):
                 self.setCellValue(sheet,column,row,rangeValues[column-column1][row-row1])
 
-    class ExcelTable:
-        def __init__(self,sheet:str,headerRow:int):
-            self.sheet = sheet
-            self.headerRow = headerRow
-            self.columns = []
-
-        class ExcelTableColumn:
-            def __init__(self,name:str,index:int,values:list):
+    class Table:
+        class Column:
+            def __init__(self,name:str,index:int,values:list,headerRow:int):
                 self.name = name
                 self.index = index
                 self.values = values
-        
-        def appendColumn(self,name:str,index:int,values:list):#Create and append a column
-            for n,cell in enumerate(values,start=1):
-                if cell.row > self.headerRow:#Ignore all cells before HeaderRow
-                    self.columns.append(self.ExcelTableColumn(name,index,values[n:]))
-                    break
+                self.firstRow = self.getFirstRow(values,headerRow)
+                self.lastRow = self.getLastRow(values)
+            
+            def getFirstRow(self,values:list,headerRow:int):#Returns the row of the first Cell in column
+                for cell in values:#Ignore None cells
+                    if cell.row > headerRow:
+                        from openpyxl.cell.cell import MergedCell
+                        print(isinstance(cell,MergedCell))
+                        return cell.row
+            
+            def getLastRow(self,values:list):#Returns the row of the last Cell in column
+                for cell in reversed(values):#Ignore None cells
+                    if cell.value != None:
+                        return cell.row
+                
+        def __init__(self,sheet:str,headerRow:int,columns:list[Column]=[]):
+            self.sheet = sheet
+            self.headerRow = headerRow
+            self.columns = columns
 
-        def merge(self,table):
-            for column in table.columns:
-                self.columns.append(column)
-
-    def getTableCells(self,sheet:str,headerRow:int,columns=[-1]) -> ExcelTable:#Returns all elements in Excel Table Columns, if columns==[-1] returns all columns
+    def getTableCells(self,sheet:str,headerRow:int,columns=[-1]) -> Table:#Returns all elements in Excel Table Columns, if columns==[-1] returns all columns
         for n,column in enumerate(columns):#Converts all columns
             columns[n] = self.convertColumn(column)
         
-        table = self.ExcelTable(sheet,headerRow)#Create a table
+        tableColuns = []
         for column,headerCell in enumerate(self.getRow(sheet,headerRow),start=1):
             if headerCell.value != None and (column in columns or columns==[-1]):#If column is required
-                table.appendColumn(name=headerCell.value,index=column,values=self.getColumn(sheet,column))#Append it
-        return table
-    
-    def setTableCells(self,sheet:str,headerRow:int,table:ExcelTable,columns=[-1]):#Set Cell Values in Table Columns, if columns==[-1] set all columns
-        pass
-    '''
-    def setTableCells(self,sheet:str,headerRow:int,values:dict,method=lambda x:x,columns=[-1],replace=False):#Set Cell Values in Table Columns, if columns==[-1] set all columns
-        columns = self.convertColumn(columns)
-        for column,headerCell in enumerate(self.getRow(sheet,headerRow),start=1):
-            if headerCell.value != None and (column in columns or columns==[-1]):
-                pass
-    '''
+                tableColuns.append(self.Table.Column(name=headerCell.value,index=column,values=self.getColumn(sheet,column),headerRow=headerRow))#Append it
+        return self.Table(sheet,headerRow,tableColuns)
 
 class Pdf:
     current_path = os.getcwd()

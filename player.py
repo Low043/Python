@@ -1,12 +1,31 @@
 from lowModel.main import *
 
-planilha = Excel(r'C:\Users\lgpfr\Desktop\GU\Programação\Python\a.xlsx')
+planilha = Excel(r'C:\Users\20221214010004\Desktop\Python\a.xlsx')
 
-table = planilha.getTableCells('Planilha1',4)
+tabelaDados = planilha.getTableCells('Planilha1',headerRow=4)
 
-for column in table.columns:
-    print(f'-------{column.name}:')
-    for cell in column.values:
-        print(cell.row)
+tabelaNova = planilha.getTableCells('Planilha1',headerRow=19)
+
+tabelaComparacao = planilha.getTableCells('Planilha1',headerRow=31)
+
+print('Tabela de Dados:')
+for coluna in tabelaDados.columns:
+    print(f'    Coluna {coluna.name}:')
+    print(f'        Começa na linha: {coluna.firstRow}')
+    print(f'        Termina na linha: {coluna.lastRow}')
+
+
+
+print('\n\n\nTabela Nova:')
+for coluna in tabelaNova.columns:
+    print(f'    Coluna {coluna.name}:')
+    print(f'        Começa na linha: {coluna.firstRow}')
+    print(f'        Termina na linha: {coluna.lastRow}')
+
+print('\n\n\nTabela de Comparação:')
+for coluna in tabelaComparacao.columns:
+    print(f'    Coluna {coluna.name}:')
+    print(f'        Começa na linha: {coluna.firstRow}')
+    print(f'        Termina na linha: {coluna.lastRow}')
 
 planilha.close()
