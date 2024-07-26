@@ -3,6 +3,7 @@ import openpyxl as xl
 import win32com.client
 from math import ceil
 from shutil import copyfile
+from typing import Literal
 
 from openpyxl.styles import Font
 from openpyxl.styles.colors import Color
@@ -172,6 +173,48 @@ class Excel:
         for column in range(column1,column2+1):
             for row in range(row1,row2+1):
                 self.setCellValue(sheet,column,row,rangeValues[column-column1][row-row1])
+
+    class ExcelTable:
+        def __init__(self,sheet:str,headerRow:int):
+            self.sheet = sheet
+            self.headerRow = headerRow
+            self.columns = []
+
+        class ExcelTableColumn:
+            def __init__(self,name:str,index:int,values:list):
+                self.name = name
+                self.index = index
+                self.values = values
+        
+        def appendColumn(self,name:str,index:int,values:list):#Create and append a column
+            for n,cell in enumerate(values,start=1):
+                if cell.row > self.headerRow:#Ignore all cells before HeaderRow
+                    self.columns.append(self.ExcelTableColumn(name,index,values[n:]))
+                    break
+
+        def merge(self,table):
+            for column in table.columns:
+                self.columns.append(column)
+
+    def getTableCells(self,sheet:str,headerRow:int,columns=[-1]) -> ExcelTable:#Returns all elements in Excel Table Columns, if columns==[-1] returns all columns
+        for n,column in enumerate(columns):#Converts all columns
+            columns[n] = self.convertColumn(column)
+        
+        table = self.ExcelTable(sheet,headerRow)#Create a table
+        for column,headerCell in enumerate(self.getRow(sheet,headerRow),start=1):
+            if headerCell.value != None and (column in columns or columns==[-1]):#If column is required
+                table.appendColumn(name=headerCell.value,index=column,values=self.getColumn(sheet,column))#Append it
+        return table
+    
+    def setTableCells(self,sheet:str,headerRow:int,table:ExcelTable,columns=[-1]):#Set Cell Values in Table Columns, if columns==[-1] set all columns
+        pass
+    '''
+    def setTableCells(self,sheet:str,headerRow:int,values:dict,method=lambda x:x,columns=[-1],replace=False):#Set Cell Values in Table Columns, if columns==[-1] set all columns
+        columns = self.convertColumn(columns)
+        for column,headerCell in enumerate(self.getRow(sheet,headerRow),start=1):
+            if headerCell.value != None and (column in columns or columns==[-1]):
+                pass
+    '''
 
 class Pdf:
     current_path = os.getcwd()
