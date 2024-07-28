@@ -1,4 +1,5 @@
 from lowModel.utils import *
+from lowModel.menus import *
 import openpyxl as xl
 import win32com.client
 from math import ceil
@@ -175,14 +176,14 @@ class Excel:
                 self.setCellValue(sheet,column,row,rangeValues[column-column1][row-row1])
 
     class Table:#Object to manipulate cells inside a Table
-        def __init__(self,excel,sheet:str,headerRow:int,mainColumn=1):
+        def __init__(self,excel,sheet:str,headerRow:int,mainColumn=1,lastRow=-1):
             self.excel = excel
             self.sheet = sheet
             self.headerRow = headerRow
             self.mainColumn = mainColumn - 1
             self.columns = self.__getColumns()
             self.firstRow = self.__getRow('First')
-            self.lastRow = self.__getRow('Last')
+            self.lastRow = self.__getRow('Last') if lastRow == -1 else lastRow
             self.linkMethods = {
                 'Name' : self.__linkByName,
                 'NameSimilarity' : lambda x,y: self.__linkByName(x,y,similar=True),
@@ -212,8 +213,8 @@ class Excel:
         _str = Literal['Name','NameSimilarity','Order']#Default values suggestion to linkBy
         def pullValuesFrom(self,table,replaceOldValues=False,linkBy:list[_str]=['Name'],cut=False,associate:dict={},notAssociate:dict={}):
             linkedColumns = {}#List of linked columns
-            self.__columnsRemain = self.columns#List of columns that not linked yet
-            self.__pullColumnsRemain = table.columns
+            self.__columnsRemain = self.columns[:]#List of columns that not linked yet
+            self.__pullColumnsRemain = table.columns[:]
 
             associate = self.__convertAssociations(table,associate)
             notAssociate = self.__convertAssociations(table,notAssociate)
@@ -228,10 +229,27 @@ class Excel:
 
             self.__pullColumns(table,linkedColumns,replaceOldValues,cut)
 
+        def updateValuesOf(self,column,usingFunction=None,usingColumn=-1):
+            column = self.__matchColumn(column)
+            usingColumn = self.__matchColumn(usingColumn) if usingColumn != -1 else column
+            usingFunction = (lambda cellValue:cellValue) if usingFunction == None else usingFunction
+
+            if column != None and usingColumn != None:
+                for cell in self.excel.getColumn(self.sheet,column.index):
+                    if cell.row >= self.firstRow and cell.row <= self.lastRow:
+                        cell.value = usingFunction(self.excel.getCellValue(self.sheet,usingColumn.index,cell.row))
+
+        def validateValuesOf(self,column,usingTable,autoCorrectWhen=0.9):
+            column = self.__matchColumn(column)
+            allowedValues = usingTable.__getValuesFromMainColumn()
+            for cell in self.excel.getColumn(self.sheet,column.index):
+                if cell.value != None and cell.row >= self.firstRow and cell.row <= self.lastRow:
+                    cell.value = self.__getMoreSimilar(cell.value,allowedValues,autoCorrectWhen)
+
         def __linkByName(self,linkedColumns={},notAssociate={},similar=False):
             for selfColumn in self.__columnsRemain:
                 for tableColumn in self.__pullColumnsRemain:
-                    namesMatch = (selfColumn.name == tableColumn.name) if similar == False else (textSimilarity(selfColumn.name,tableColumn.name) >= 0.8)
+                    namesMatch = (selfColumn.name == tableColumn.name) if similar == False else (textSimilarity(str(selfColumn.name),str(tableColumn.name)) >= 0.8)
                     if namesMatch and not (selfColumn in notAssociate and notAssociate[selfColumn] == tableColumn):
                         linkedColumns[selfColumn] = tableColumn
                         self.__columnsRemain.remove(selfColumn)
@@ -281,8 +299,28 @@ class Excel:
                         lastRow = max(lastRow,selfRow)
             self.lastRow = max(lastRow,self.lastRow)
 
-    def getTable(self,sheet:str,headerRow:int,mainColumn=1) -> Table:#Returns a table of values
-        return self.Table(self,sheet,headerRow,mainColumn)
+        def __getValuesFromMainColumn(self) -> list:
+            values = []
+            for cell in self.excel.getColumn(self.sheet,self.columns[self.mainColumn].index):
+                if cell.row >= self.firstRow and cell.row <= self.lastRow:
+                    values.append(cell.value)
+            return values
+
+        def __getMoreSimilar(self,value,allowedValues:list,autoCorrectWhen:float):
+            if value in allowedValues:
+                return value
+            
+            bestValue,bestValueSimilarity = None, 0
+            for testValue in allowedValues:
+                similarity = textSimilarity(simplifyText(str(value).strip()),simplifyText(str(testValue).strip()))
+                if similarity > bestValueSimilarity:
+                    bestValue,bestValueSimilarity = testValue,similarity
+            if bestValueSimilarity > autoCorrectWhen:
+                return bestValue
+            return str(value) + ' (Not Found)'
+
+    def getTable(self,sheet:str,headerRow:int,mainColumn=1,lastRow=-1) -> Table:#Returns a table of values
+        return self.Table(self,sheet,headerRow,mainColumn,lastRow)
 
 class Pdf:
     current_path = os.getcwd()
