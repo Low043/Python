@@ -2,6 +2,7 @@ import os
 from termcolor import colored
 from msvcrt import kbhit, getch
 from unidecode import unidecode
+from difflib import SequenceMatcher
 
 def center(text:str,fill=' '):#Centraliza um texto no terminal
     terminalWidth = os.get_terminal_size()[0]#Tamanho do terminal
@@ -66,6 +67,9 @@ def moneyToNum(text):
     if text[-3:] == ',00':
         text = text[:-3]
     return float(text.replace(',','.').replace('.',''))
+
+def textSimilarity(text1:str,text2:str):
+    return SequenceMatcher(None, text1, text2).ratio()
 
 class Pointer:
     #Ponteiros são espécies de "locais na memória compartilhados"

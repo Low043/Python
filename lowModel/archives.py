@@ -20,18 +20,18 @@ class Excel:
     def __init__(self,pathToXlsx:str):
         self.wb = xl.load_workbook(pathToXlsx)#OpenPyXl WorkBook
         self.path = pathToXlsx
-        self.fileName = self.getFileNameByFilePath(pathToXlsx)
-        self.folderPath = self.getFolderPathByFilePath(pathToXlsx)
-        self.savesBackupFolder = self.getBackupFolderByPath(pathToXlsx)
+        self.fileName = self.__getFileNameByFilePath(pathToXlsx)
+        self.folderPath = self.__getFolderPathByFilePath(pathToXlsx)
+        self.savesBackupFolder = self.__getBackupFolderByPath(pathToXlsx)
 
-    def getFileNameByFilePath(self,path:str):#Returns the text between the last slash and the .xlsx (FileName)
+    def __getFileNameByFilePath(self,path:str):#Returns the text between the last slash and the .xlsx (FileName)
         return path[path.rfind('\\')+1:path.rfind('.')]
         
-    def getFolderPathByFilePath(self,path:str):#Returns all text before the last slash (FolderPath)
+    def __getFolderPathByFilePath(self,path:str):#Returns all text before the last slash (FolderPath)
         return path[:path.rfind('\\')+1]
     
-    def getBackupFolderByPath(self,path:str):#Returns the path to a new folder where backups of the modified Excel will be stored
-        return self.getFolderPathByFilePath(path) + '0oldVersions\\'
+    def __getBackupFolderByPath(self,path:str):#Returns the path to a new folder where backups of the modified Excel will be stored
+        return self.__getFolderPathByFilePath(path) + '0oldVersions\\'
 
     def getSheets(self) -> list:#Returns the name of WorkSheets
         return self.wb.sheetnames
@@ -107,15 +107,15 @@ class Excel:
         if path == None:
             path = self.path
         if backup:#If backup==True create a copy of file in 'filePath/0oldVersions/'
-            self.backup()
+            self.__backup()
 
         if path[-4:] == '.pdf':#If path ends with .pdf save file as PDF
             self.wb.save(self.path)
-            self.savePdf(path,pagesPdf)
+            self.__savePdf(path,pagesPdf)
         elif path[-5:] == '.xlsx':#If path ends with .xlsx save file as Excel
             self.wb.save(path)#OpenPyXl function to save Excel
 
-    def backup(self):#Create a copy of Excel in Backup folder
+    def __backup(self):#Create a copy of Excel in Backup folder
         if not os.path.exists(self.savesBackupFolder):#If backup folder doesn't exist, create it
             os.mkdir(self.savesBackupFolder)
 
@@ -128,7 +128,7 @@ class Excel:
 
         copyfile(self.path,backupFilePath)#Copy file
 
-    def savePdf(self,path:str,pagesPdf:list):#Save file as .pdf
+    def __savePdf(self,path:str,pagesPdf:list):#Save file as .pdf
         if path == None:
             path = self.path.replace('.xlsx','.pdf')
         
@@ -136,11 +136,11 @@ class Excel:
         excel = win32com.client.Dispatch("Excel.Application")
         excel.Visible = False
         wb = excel.Workbooks.Open(self.path)
-        wb.WorkSheets(self.convertPages(pagesPdf)).Select()
+        wb.WorkSheets(self.__convertPages(pagesPdf)).Select()
         wb.ActiveSheet.ExportAsFixedFormat(0,path)
         os.system("taskkill /f /im excel.exe")#Kill Excel after save
 
-    def convertPages(self,pages:list):#Replace page name by page index
+    def __convertPages(self,pages:list):#Replace page name by page index
         if pages == [-1]:#If pages==[-1] (default value), returns a list [1...n] where n is the index of last page in file
             return range(1,len(self.getSheets())+1)
         
@@ -153,7 +153,7 @@ class Excel:
         if type(column) == str and toStr == False:
             return ord(column.upper())+1 - ord('A')
         if type(column) == int and toStr == True:
-            return str(column-1+ord('A'))
+            return chr(column-1+ord('A'))
         return column
     
     def close(self):#Close Excel file REMEMBER IT!!!!
@@ -174,41 +174,115 @@ class Excel:
             for row in range(row1,row2+1):
                 self.setCellValue(sheet,column,row,rangeValues[column-column1][row-row1])
 
-    class Table:
-        class Column:
-            def __init__(self,name:str,index:int,values:list,headerRow:int):
-                self.name = name
-                self.index = index
-                self.values = values
-                self.firstRow = self.getFirstRow(values,headerRow)
-                self.lastRow = self.getLastRow(values)
-            
-            def getFirstRow(self,values:list,headerRow:int):#Returns the row of the first Cell in column
-                for cell in values:#Ignore None cells
-                    if cell.row > headerRow:
-                        from openpyxl.cell.cell import MergedCell
-                        print(isinstance(cell,MergedCell))
-                        return cell.row
-            
-            def getLastRow(self,values:list):#Returns the row of the last Cell in column
-                for cell in reversed(values):#Ignore None cells
-                    if cell.value != None:
-                        return cell.row
-                
-        def __init__(self,sheet:str,headerRow:int,columns:list[Column]=[]):
+    class Table:#Object to manipulate cells inside a Table
+        def __init__(self,excel,sheet:str,headerRow:int,mainColumn=1):
+            self.excel = excel
             self.sheet = sheet
             self.headerRow = headerRow
-            self.columns = columns
+            self.mainColumn = mainColumn - 1
+            self.columns = self.__getColumns()
+            self.firstRow = self.__getRow('First')
+            self.lastRow = self.__getRow('Last')
+            self.linkMethods = {
+                'Name' : self.__linkByName,
+                'NameSimilarity' : lambda x,y: self.__linkByName(x,y,similar=True),
+                'Order' : self.__linkByOrder}
 
-    def getTableCells(self,sheet:str,headerRow:int,columns=[-1]) -> Table:#Returns all elements in Excel Table Columns, if columns==[-1] returns all columns
-        for n,column in enumerate(columns):#Converts all columns
-            columns[n] = self.convertColumn(column)
+        class Column:
+            def __init__(self,name:str,index:int):
+                self.name = name
+                self.index = index
+
+        def __getColumns(self) -> list[Column]:
+            columns = []
+            for column,headerCell in enumerate(self.excel.getRow(self.sheet,self.headerRow),start=1):
+                if headerCell.value != None:
+                    columns.append(self.Column(headerCell.value,self.excel.convertColumn(column,toStr=True)))
+            return columns
         
-        tableColuns = []
-        for column,headerCell in enumerate(self.getRow(sheet,headerRow),start=1):
-            if headerCell.value != None and (column in columns or columns==[-1]):#If column is required
-                tableColuns.append(self.Table.Column(name=headerCell.value,index=column,values=self.getColumn(sheet,column),headerRow=headerRow))#Append it
-        return self.Table(sheet,headerRow,tableColuns)
+        def __getRow(self,row:str):#Returns the row of first value (returns the row of last value if recieve "Last")
+            mainColumn = self.excel.getColumn(self.sheet,self.columns[self.mainColumn].index)
+            mainColumn = reversed(mainColumn) if row == 'Last' else mainColumn
+            
+            for cell in mainColumn:
+                if cell.row > self.headerRow and cell.value != None:
+                    return cell.row
+            return self.headerRow + 1
+
+        _str = Literal['Name','NameSimilarity','Order']#Default values suggestion to linkBy
+        def pullValuesFrom(self,table,replaceOldValues=False,linkBy:list[_str]=['Name'],cut=False,associate:dict={},notAssociate:dict={}):
+            linkedColumns = {}#List of linked columns
+            self.__columnsRemain = self.columns#List of columns that not linked yet
+            self.__pullColumnsRemain = table.columns
+
+            associate = self.__convertAssociations(table,associate)
+            notAssociate = self.__convertAssociations(table,notAssociate)
+            
+            for association in associate:#Link manual associated columns and remove it from remain columns
+                linkedColumns[association] = associate[association]
+                self.__columnsRemain.remove(association)
+                self.__pullColumnsRemain.remove(associate[association])
+
+            for method in linkBy:#Use linkBy methods in list
+                linkedColumns = self.linkMethods[method](linkedColumns,notAssociate)
+
+            self.__pullColumns(table,linkedColumns,replaceOldValues,cut)
+
+        def __linkByName(self,linkedColumns={},notAssociate={},similar=False):
+            for selfColumn in self.__columnsRemain:
+                for tableColumn in self.__pullColumnsRemain:
+                    namesMatch = (selfColumn.name == tableColumn.name) if similar == False else (textSimilarity(selfColumn.name,tableColumn.name) >= 0.8)
+                    if namesMatch and not (selfColumn in notAssociate and notAssociate[selfColumn] == tableColumn):
+                        linkedColumns[selfColumn] = tableColumn
+                        self.__columnsRemain.remove(selfColumn)
+                        self.__pullColumnsRemain.remove(tableColumn)
+                        return self.__linkByName(linkedColumns,notAssociate,similar)
+            return linkedColumns
+
+        def __linkByOrder(self,linkedColumns={},notAssociate={}):
+            for column in self.__columnsRemain:
+                if self.__pullColumnsRemain and not (column in notAssociate and notAssociate[column] == self.__pullColumnsRemain[0]):
+                    linkedColumns[column] = self.__pullColumnsRemain[0]
+                    self.__pullColumnsRemain.pop(0)
+            return linkedColumns
+
+        def __convertAssociations(self,table,associations={}):#Allow associations to be int, letter or name of Column in any order
+            newAssociations = {}
+            for association in associations:
+                selfColumn = self.__matchColumn(association)#Search a column that matches with association in both tables
+                tableColumn = table.__matchColumn(associations[association])
+
+                if selfColumn == None or tableColumn == None:#If search not match both tables
+                    selfColumn = self.__matchColumn(associations[association])#Reverse dict to test again
+                    tableColumn = table.__matchColumn(association)
+                
+                if selfColumn != None and tableColumn != None:
+                    newAssociations[selfColumn] = tableColumn
+            return newAssociations
+        
+        def __matchColumn(self,testColumn):#Returns a column that matches with a testColumn (Associate by name, index or letter)
+            for column in self.columns:
+                if column.name == testColumn or column.index == testColumn or self.excel.convertColumn(column.index) == testColumn:
+                    return column
+            return None
+
+        def __pullColumns(self,table,linkedColumns,replaceOldValues:bool,cut:bool):
+            lastRow = self.lastRow
+            for column in linkedColumns:
+                selfRow = self.firstRow if replaceOldValues else (self.lastRow + 1 if self.firstRow!=self.lastRow else self.firstRow)
+                tableRow = table.firstRow
+                for cell in table.excel.getColumn(table.sheet,linkedColumns[column].index):
+                    if cell.row == tableRow:
+                        self.excel.setCellValue(self.sheet,column.index,selfRow,cell.value)
+                        if cut:
+                            table.excel.setCellValue(table.sheet,linkedColumns[column].index,tableRow,None)
+                        selfRow += 1
+                        tableRow += 1
+                        lastRow = max(lastRow,selfRow)
+            self.lastRow = max(lastRow,self.lastRow)
+
+    def getTable(self,sheet:str,headerRow:int,mainColumn=1) -> Table:#Returns a table of values
+        return self.Table(self,sheet,headerRow,mainColumn)
 
 class Pdf:
     current_path = os.getcwd()
