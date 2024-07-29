@@ -229,15 +229,19 @@ class Excel:
 
             self.__pullColumns(table,linkedColumns,replaceOldValues,cut)
 
-        def updateValuesOf(self,column,usingFunction=None,usingColumn=-1):
-            column = self.__matchColumn(column)
-            usingColumn = self.__matchColumn(usingColumn) if usingColumn != -1 else column
+        def updateValuesOf(self,column,usingFunction=None,alsoUseColumns=[]):
             usingFunction = (lambda cellValue:cellValue) if usingFunction == None else usingFunction
+            column = self.__matchColumn(column)
+            for n,useColumn in enumerate(alsoUseColumns):
+                alsoUseColumns[n] = self.excel.convertColumn(self.__matchColumn(useColumn).index,toStr=False)
 
-            if column != None and usingColumn != None:
+            if column != None:
                 for cell in self.excel.getColumn(self.sheet,column.index):
                     if cell.row >= self.firstRow and cell.row <= self.lastRow:
-                        cell.value = usingFunction(self.excel.getCellValue(self.sheet,usingColumn.index,cell.row))
+                        valuesPassed = [cell]
+                        for useColumn in alsoUseColumns:
+                            valuesPassed.append(self.excel.wb[self.sheet].cell(cell.row,useColumn))
+                        cell.value = usingFunction(*valuesPassed)
 
         def validateValuesOf(self,column,usingTable,autoCorrectWhen=0.9):
             column = self.__matchColumn(column)
@@ -294,6 +298,8 @@ class Excel:
                         self.excel.setCellValue(self.sheet,column.index,selfRow,cell.value)
                         if cut:
                             table.excel.setCellValue(table.sheet,linkedColumns[column].index,tableRow,None)
+                        if tableRow == table.lastRow:
+                            break
                         selfRow += 1
                         tableRow += 1
                         lastRow = max(lastRow,selfRow)

@@ -46,7 +46,7 @@ def simplifyText(text:str):
 def numToMonth(num,upper=True):
     months = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro']
     num = int(num) - 1
-    if num > 0 and num < len(months):
+    if num >= 0 and num < len(months):
         return months[num].upper() if upper else months[num]
 
 def numToMoney(num):
